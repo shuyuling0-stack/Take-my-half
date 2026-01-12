@@ -272,7 +272,7 @@ const SeasonalCanvas: React.FC<SeasonalCanvasProps> = ({ season }) => {
   return (
     <canvas
       ref={canvasRef}
-      className="fixed inset-0 w-full h-full pointer-events-none z-[100]"
+      className="fixed inset-0 w-full h-full pointer-events-none z-[105]"
     />
   );
 };

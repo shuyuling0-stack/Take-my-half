@@ -1,11 +1,14 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Play, Pause, Upload, Music, Disc, Radio } from 'lucide-react';
-import { MediaData } from '../types';
+import { createPortal } from 'react-dom';
+import { Play, Pause, Upload, Radio, ImagePlus, FileText, X, Save, FileUp, Download } from 'lucide-react';
+import { MediaData, LyricLine } from '../types';
 
 interface DoodleRadioProps {
   media: MediaData | null;
   onPlayStateChange: (isPlaying: boolean) => void;
   onFileUpload: (files: File[]) => void;
+  onLyricsLoaded: (lyrics: LyricLine[]) => void;
+  onTimeUpdate: (time: number) => void;
   onTrackFinish?: () => void;
   autoPlay?: boolean;
 }
@@ -14,6 +17,8 @@ const DoodleRadio: React.FC<DoodleRadioProps> = ({
   media, 
   onPlayStateChange, 
   onFileUpload, 
+  onLyricsLoaded,
+  onTimeUpdate,
   onTrackFinish,
   autoPlay = false
 }) => {
@@ -21,6 +26,11 @@ const DoodleRadio: React.FC<DoodleRadioProps> = ({
   const [isPlaying, setIsPlaying] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [coverImage, setCoverImage] = useState<string | null>(null);
+
+  // Lyrics Modal State
+  const [showLyricsModal, setShowLyricsModal] = useState(false);
+  const [pastedLyrics, setPastedLyrics] = useState("");
 
   // Sound Effect Generator using Web Audio API
   const playMechanicalSound = () => {
@@ -31,46 +41,35 @@ const DoodleRadio: React.FC<DoodleRadioProps> = ({
 
       const currentTime = ctx.currentTime;
 
-      // 1. Motor/Mechanism Whir (Oscillator)
+      // 1. Soft Motor Whir
       const osc = ctx.createOscillator();
       const oscGain = ctx.createGain();
       osc.connect(oscGain);
       oscGain.connect(ctx.destination);
 
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(50, currentTime);
-      osc.frequency.exponentialRampToValueAtTime(400, currentTime + 0.3);
+      osc.type = 'sine'; // Softer sound
+      osc.frequency.setValueAtTime(100, currentTime);
+      osc.frequency.exponentialRampToValueAtTime(300, currentTime + 0.4);
       
       oscGain.gain.setValueAtTime(0.05, currentTime);
-      oscGain.gain.exponentialRampToValueAtTime(0.001, currentTime + 0.4);
+      oscGain.gain.exponentialRampToValueAtTime(0.001, currentTime + 0.5);
 
       osc.start(currentTime);
-      osc.stop(currentTime + 0.4);
+      osc.stop(currentTime + 0.5);
 
-      // 2. Static/Friction Burst (White Noise)
-      const bufferSize = ctx.sampleRate * 0.5;
-      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-      const data = buffer.getChannelData(0);
-      for (let i = 0; i < bufferSize; i++) {
-        data[i] = Math.random() * 2 - 1;
-      }
-
-      const noise = ctx.createBufferSource();
-      noise.buffer = buffer;
-      const noiseGain = ctx.createGain();
-      const filter = ctx.createBiquadFilter();
-
-      filter.type = 'lowpass';
-      filter.frequency.value = 800;
-
-      noise.connect(filter);
-      filter.connect(noiseGain);
-      noiseGain.connect(ctx.destination);
-
-      noiseGain.gain.setValueAtTime(0.08, currentTime);
-      noiseGain.gain.linearRampToValueAtTime(0, currentTime + 0.3);
-
-      noise.start(currentTime);
+      // 2. Click/Latch sound
+      const clickOsc = ctx.createOscillator();
+      const clickGain = ctx.createGain();
+      clickOsc.connect(clickGain);
+      clickGain.connect(ctx.destination);
+      
+      clickOsc.frequency.setValueAtTime(800, currentTime);
+      clickGain.gain.setValueAtTime(0, currentTime);
+      clickGain.gain.linearRampToValueAtTime(0.1, currentTime + 0.01);
+      clickGain.gain.exponentialRampToValueAtTime(0.001, currentTime + 0.1);
+      
+      clickOsc.start(currentTime);
+      clickOsc.stop(currentTime + 0.1);
 
     } catch (e) {
       console.warn("Audio Context failed:", e);
@@ -112,6 +111,10 @@ const DoodleRadio: React.FC<DoodleRadioProps> = ({
 
   useEffect(() => {
     setProgress(0);
+    // Reset cover when media changes
+    setCoverImage(null);
+    // Clear lyrics implied by new song? Handled by parent usually, but we reset here visually if needed
+    
     if (media && media.type === 'audio' && autoPlay) {
       const timeoutId = setTimeout(() => {
         if (audioRef.current) {
@@ -134,10 +137,23 @@ const DoodleRadio: React.FC<DoodleRadioProps> = ({
     }
   }, [media]);
 
+  // Clean up object URL for cover image
+  useEffect(() => {
+    return () => {
+      if (coverImage) {
+        URL.revokeObjectURL(coverImage);
+      }
+    };
+  }, [coverImage]);
+
   const handleTimeUpdate = () => {
     if (audioRef.current) {
-      const p = (audioRef.current.currentTime / audioRef.current.duration) * 100;
+      const currentTime = audioRef.current.currentTime;
+      const duration = audioRef.current.duration;
+      const p = (currentTime / duration) * 100;
+      
       setProgress(p || 0);
+      onTimeUpdate(currentTime);
     }
   };
 
@@ -157,8 +173,107 @@ const DoodleRadio: React.FC<DoodleRadioProps> = ({
     }
   };
 
+  const handleCoverUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      const url = URL.createObjectURL(file);
+      setCoverImage(url);
+    }
+  };
+
+  // --- Lyrics Parsing Logic ---
+  const parseLRC = (lrcString: string): LyricLine[] => {
+    const lines = lrcString.split('\n');
+    const lyrics: LyricLine[] = [];
+    const timeRegex = /\[(\d{2}):(\d{2})\.(\d{2,3})\]/;
+
+    lines.forEach(line => {
+      const match = line.match(timeRegex);
+      if (match) {
+        const minutes = parseInt(match[1], 10);
+        const seconds = parseInt(match[2], 10);
+        const milliseconds = parseInt(match[3], 10);
+        // Normalize milliseconds (some lrc use 2 digits, some 3)
+        const ms = match[3].length === 3 ? milliseconds : milliseconds * 10;
+        const time = minutes * 60 + seconds + ms / 1000;
+        const text = line.replace(timeRegex, '').trim();
+        if (text) {
+          lyrics.push({ time, text });
+        }
+      } else {
+         // Fallback for non-timestamped lines if we wanted, but for sync we skip
+         // or could push with previous time.
+      }
+    });
+    return lyrics;
+  };
+
+  const handleLyricsUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const text = ev.target?.result as string;
+            // Update textarea for editing
+            setPastedLyrics(text);
+            
+            const parsed = parseLRC(text);
+            if (parsed.length > 0) {
+                onLyricsLoaded(parsed);
+                // Don't close modal automatically, let user see the text
+                // setShowLyricsModal(false); 
+                playMechanicalSound();
+            } else {
+                alert("Could not parse lyrics. Please use standard .lrc format.");
+            }
+        };
+        reader.readAsText(file);
+    }
+  };
+
+  const handleSavePastedLyrics = () => {
+    const parsed = parseLRC(pastedLyrics);
+    if (parsed.length > 0) {
+        onLyricsLoaded(parsed);
+        setShowLyricsModal(false);
+        playMechanicalSound();
+        // Keep pastedLyrics in state in case they open modal again to edit
+    } else if (pastedLyrics.trim() === "") {
+        onLyricsLoaded([]);
+        setShowLyricsModal(false);
+    } else {
+        alert("Could not parse text. Ensure lines start with [mm:ss.xx].");
+    }
+  };
+
+  const handleDownloadLyrics = () => {
+    if (!pastedLyrics.trim()) {
+      alert("No lyrics content to download.");
+      return;
+    }
+
+    const blob = new Blob([pastedLyrics], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    
+    // Determine filename
+    let filename = 'lyrics.lrc';
+    if (media && media.name) {
+        // Strip existing extension if present
+        filename = media.name.replace(/\.[^/.]+$/, "") + ".lrc";
+    }
+    
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    playMechanicalSound();
+  };
+
   return (
-    <div className="relative w-full max-w-lg mx-auto p-0 md:p-4">
+    <div className="relative w-full max-w-lg mx-auto p-2 md:p-6">
       {/* Audio Element */}
       {media?.type === 'audio' && (
         <audio
@@ -169,195 +284,271 @@ const DoodleRadio: React.FC<DoodleRadioProps> = ({
         />
       )}
 
-      {/* Radio Body */}
-      <div className="relative border border-white rounded-[1.5rem] md:rounded-[2rem] p-5 md:p-8 bg-white/5 backdrop-blur-[2px] shadow-[0_0_40px_rgba(255,255,255,0.05)] z-10 transition-all duration-500 hover:shadow-[0_0_50px_rgba(255,255,255,0.1)]">
+      {/* Main Radio Body */}
+      <div className="relative border border-white/70 rounded-[2.5rem] md:rounded-[3.5rem] p-6 md:p-10 bg-white/5 backdrop-blur-[4px] shadow-[0_8px_40px_rgba(0,0,0,0.1)] z-10 transition-all duration-500 hover:shadow-[0_12px_60px_rgba(255,255,255,0.15)] group">
         
-        {/* Feet */}
-        <div className="absolute -bottom-2 left-8 md:left-12 w-6 md:w-8 h-2 border border-t-0 border-white rounded-b-md -z-10 bg-transparent"></div>
-        <div className="absolute -bottom-2 right-8 md:right-12 w-6 md:w-8 h-2 border border-t-0 border-white rounded-b-md -z-10 bg-transparent"></div>
+        {/* Inner Decorative Bezel/Frame for depth */}
+        <div className="absolute inset-2 md:inset-3 border border-white/20 rounded-[2rem] md:rounded-[3rem] pointer-events-none"></div>
 
-        {/* Handle */}
-        <div className="absolute -top-6 md:-top-10 left-1/2 -translate-x-1/2 w-32 md:w-40 h-6 md:h-10 border border-white border-b-0 rounded-t-xl -z-10">
-             <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex space-x-2">
-                 <div className="w-0.5 h-0.5 bg-white rounded-full opacity-50"></div>
-                 <div className="w-0.5 h-0.5 bg-white rounded-full opacity-50"></div>
-                 <div className="w-0.5 h-0.5 bg-white rounded-full opacity-50"></div>
-             </div>
-        </div>
+        {/* Elegant Strap Handle */}
+        <div className="absolute -top-12 left-1/2 -translate-x-1/2 w-48 h-20 border-t-[3px] border-white/80 rounded-t-full -z-10 opacity-90"></div>
         
-        {/* Antenna - Compact mobile sizing */}
-        <div className="absolute -top-8 md:-top-28 right-4 md:right-6 w-px h-8 md:h-28 bg-white/80 transform rotate-[8deg] -z-20 origin-bottom">
-             <div className="w-1.5 h-1.5 rounded-full border border-white bg-black absolute -top-1 -left-[2.5px]"></div>
+        {/* Antenna - Minimalist Line */}
+        <div className="absolute -top-16 right-8 md:right-12 w-[1px] h-24 bg-white/60 transform rotate-[12deg] -z-20 origin-bottom transition-transform duration-700 group-hover:rotate-[5deg]">
+             <div className="w-2 h-2 rounded-full bg-white absolute -top-1 -left-[3.5px] shadow-[0_0_10px_rgba(255,255,255,0.8)]"></div>
         </div>
 
-        {/* Screws */}
-        <div className="absolute top-3 left-3 md:top-4 md:left-4 text-white/40 text-[8px]">+</div>
-        <div className="absolute top-3 right-3 md:top-4 md:right-4 text-white/40 text-[8px]">+</div>
-        <div className="absolute bottom-3 left-3 md:bottom-4 md:left-4 text-white/40 text-[8px]">+</div>
-        <div className="absolute bottom-3 right-3 md:bottom-4 md:right-4 text-white/40 text-[8px]">+</div>
+        {/* Small Feet - Rounded Pegs */}
+        <div className="absolute -bottom-3 left-10 md:left-16 w-3 h-3 md:w-4 md:h-4 bg-white/20 backdrop-blur-md rounded-full -z-10 shadow-sm"></div>
+        <div className="absolute -bottom-3 right-10 md:right-16 w-3 h-3 md:w-4 md:h-4 bg-white/20 backdrop-blur-md rounded-full -z-10 shadow-sm"></div>
 
-        {/* Top Indicators */}
-        <div className="flex justify-between items-end mb-4 md:mb-8 px-1">
-           <div className="flex items-center space-x-3">
-               <div className="flex flex-col space-y-1">
-                   <div className="w-8 h-px bg-white/30"></div>
-                   <div className="w-5 h-px bg-white/30"></div>
+        {/* Screws - Minimalist dots */}
+        <div className="absolute top-4 left-4 md:top-6 md:left-6 w-1 h-1 bg-white/40 rounded-full"></div>
+        <div className="absolute top-4 right-4 md:top-6 md:right-6 w-1 h-1 bg-white/40 rounded-full"></div>
+        <div className="absolute bottom-4 left-4 md:bottom-6 md:left-6 w-1 h-1 bg-white/40 rounded-full"></div>
+        <div className="absolute bottom-4 right-4 md:bottom-6 md:right-6 w-1 h-1 bg-white/40 rounded-full"></div>
+
+        {/* Top Header: Branding & Indicators */}
+        <div className="flex justify-between items-center mb-6 md:mb-8 px-2 relative z-20">
+           <div className="flex items-center gap-3">
+               {/* Decorative lines */}
+               <div className="flex flex-col gap-[3px]">
+                   <div className="w-6 h-[1px] bg-white/60"></div>
+                   <div className="w-4 h-[1px] bg-white/60"></div>
                </div>
-               <span className="text-[10px] font-light tracking-[0.3em] text-white">HI-FI AUDIO</span>
+               <span className="text-[10px] md:text-xs font-light tracking-[0.3em] text-white/90 font-serif">HAUTE FIDÉLITÉ</span>
            </div>
-           <div className="flex items-center space-x-2">
-               <div className={`w-1.5 h-1.5 rounded-full ${isPlaying ? 'bg-white shadow-[0_0_8px_white]' : 'border border-white/50 bg-transparent'}`}></div>
-               <span className="text-[9px] tracking-[0.2em] text-white/70">ON AIR</span>
+           
+           <div className="flex items-center gap-2">
+               <div className={`w-1.5 h-1.5 rounded-full transition-all duration-500 ${isPlaying ? 'bg-emerald-300 shadow-[0_0_8px_#6ee7b7]' : 'bg-white/30'}`}></div>
+               <span className="text-[9px] tracking-[0.2em] text-white/70">EN ONDE</span>
            </div>
         </div>
 
-        {/* Tape Cassette Window */}
-        <div className="border border-white/80 rounded-lg p-3 md:p-6 mb-5 md:mb-8 h-28 md:h-36 relative flex items-center justify-between overflow-hidden bg-white/[0.02]">
+        {/* Cassette Window - Framed & Elegant - NOW CLICKABLE FOR COVER UPLOAD */}
+        <label className="relative block border border-white/50 rounded-2xl md:rounded-3xl p-4 md:p-6 mb-6 md:mb-8 h-32 md:h-40 flex items-center justify-between overflow-hidden bg-black/5 shadow-inner cursor-pointer group/screen transition-all hover:border-white/70">
+          <input 
+            type="file" 
+            className="hidden" 
+            accept="image/*" 
+            onChange={handleCoverUpload}
+          />
           
+          {/* Cover Image Layer */}
+          {coverImage && (
+            <div className="absolute inset-0 z-0">
+                <img src={coverImage} alt="Song Cover" className={`w-full h-full object-cover opacity-90 transition-transform duration-[10s] ease-linear ${isPlaying ? 'scale-110' : 'scale-100'}`} />
+                <div className="absolute inset-0 bg-black/20"></div> {/* Dim for text readability */}
+            </div>
+          )}
+
+          {/* Hover Overlay for Upload Action */}
+          <div className={`absolute inset-0 z-20 bg-black/40 flex items-center justify-center transition-opacity duration-300 ${coverImage ? 'opacity-0 group-hover/screen:opacity-100' : 'opacity-0 group-hover/screen:opacity-100'}`}>
+                <div className="flex flex-col items-center gap-2 text-white/90">
+                    <ImagePlus size={24} strokeWidth={1} />
+                    <span className="text-[10px] tracking-[0.2em] font-light uppercase">
+                        {coverImage ? 'Changer la pochette' : 'Ajouter une pochette'}
+                    </span>
+                </div>
+          </div>
+          
+          {/* Glass Reflection Effect (Keep on top) */}
+          <div className="absolute -top-10 -right-10 w-20 h-40 bg-white/5 rotate-12 blur-xl pointer-events-none z-30"></div>
+
           {/* Track Info */}
-          <div className="absolute top-3 left-0 w-full flex justify-center z-10 overflow-hidden">
-             <div className="max-w-[80%] whitespace-nowrap overflow-hidden">
-                  <span className="text-xs font-light tracking-widest text-white inline-block">
-                     {media ? media.name : "NO CASSETTE LOADED"}
+          <div className="absolute top-3 left-0 w-full flex justify-center z-30 overflow-hidden pointer-events-none">
+             <div className="max-w-[85%] whitespace-nowrap overflow-hidden px-4 py-1 rounded-full bg-black/20 backdrop-blur-md border border-white/10">
+                  <span className="text-[10px] md:text-xs font-light tracking-widest text-white/90 inline-block uppercase drop-shadow-md">
+                     {media ? media.name : "Insérer la cassette"}
                   </span>
              </div>
           </div>
 
-          {/* Animation Content */}
-          <div className="w-full flex items-center justify-center gap-4 md:gap-8 mt-2 md:mt-4">
-             {media?.type === 'audio' ? (
-                <>
-                    {/* Left Reel */}
-                    <div 
-                        className={`relative w-12 h-12 md:w-16 md:h-16 border border-white rounded-full flex items-center justify-center ${isPlaying ? 'animate-spin' : ''}`} 
-                        style={{ animationDuration: '3s', animationTimingFunction: 'linear' }}
-                    >
-                        {/* Spoke Design */}
-                        <div className="absolute w-full h-px bg-white/20"></div>
-                        <div className="absolute h-full w-px bg-white/20"></div>
-                        <div className="absolute w-full h-px bg-white/20 rotate-45"></div>
-                        <div className="absolute h-full w-px bg-white/20 rotate-45"></div>
-                        
-                        {/* Tape Pack Size (Shrinks as plays) */}
+          {/* Animation Content (Only show if no cover image) */}
+          {!coverImage && (
+            <div className="w-full flex items-center justify-center gap-6 md:gap-12 mt-3 relative z-10">
+                {media?.type === 'audio' ? (
+                    <>
+                        {/* Left Reel */}
                         <div 
-                            className="absolute bg-white/10 rounded-full transition-all duration-1000"
-                            style={{ 
-                                width: `${Math.max(16, (40 - (progress * 0.24)))}px`, // responsive math roughly
-                                height: `${Math.max(16, (40 - (progress * 0.24)))}px` 
-                            }}
-                        ></div>
-                        
-                        {/* Hub */}
-                        <div className="w-1.5 h-1.5 md:w-2 md:h-2 bg-white rounded-full z-10"></div>
-                    </div>
-
-                    {/* Center Visualizer */}
-                    <div className="h-8 md:h-10 flex items-center justify-center space-x-[2px] md:space-x-[3px]">
-                         {[...Array(12)].map((_, i) => (
+                            className={`relative w-14 h-14 md:w-20 md:h-20 border border-white/80 rounded-full flex items-center justify-center ${isPlaying ? 'animate-spin' : ''}`} 
+                            style={{ animationDuration: '4s', animationTimingFunction: 'linear' }}
+                        >
+                            {/* Elegant 3-Spoke Design */}
+                            <div className="absolute w-full h-full rounded-full border-[6px] border-white/10"></div>
+                            <div className="absolute w-[1px] h-full bg-white/40"></div>
+                            <div className="absolute w-[1px] h-full bg-white/40 rotate-60"></div>
+                            <div className="absolute w-[1px] h-full bg-white/40 -rotate-60"></div>
+                            
+                            {/* Tape Pack (White filled circle) */}
                             <div 
-                                key={i} 
-                                className="w-px bg-white"
-                                style={{
-                                    height: isPlaying ? '100%' : '10%',
-                                    minHeight: '4px',
-                                    animation: isPlaying ? `bounce ${0.8 + Math.random() * 0.4}s infinite alternate ease-in-out` : 'none',
-                                    animationDelay: `${i * 0.05}s`,
-                                    opacity: 0.9
+                                className="absolute bg-white/20 rounded-full transition-all duration-1000 backdrop-blur-sm"
+                                style={{ 
+                                    width: `${Math.max(20, (50 - (progress * 0.3)))}%`, 
+                                    height: `${Math.max(20, (50 - (progress * 0.3)))}%` 
                                 }}
                             ></div>
-                        ))}
-                    </div>
+                            
+                            {/* Center Hub */}
+                            <div className="w-2 h-2 md:w-3 md:h-3 bg-white rounded-full z-10 shadow-sm"></div>
+                        </div>
 
-                    {/* Right Reel */}
-                    <div 
-                        className={`relative w-12 h-12 md:w-16 md:h-16 border border-white rounded-full flex items-center justify-center ${isPlaying ? 'animate-spin' : ''}`} 
-                        style={{ animationDuration: '3s', animationTimingFunction: 'linear' }}
-                    >
-                        {/* Spoke Design */}
-                        <div className="absolute w-full h-px bg-white/20"></div>
-                        <div className="absolute h-full w-px bg-white/20"></div>
-                        <div className="absolute w-full h-px bg-white/20 rotate-45"></div>
-                        <div className="absolute h-full w-px bg-white/20 rotate-45"></div>
+                        {/* Center Decoration */}
+                        <div className="h-full flex flex-col justify-end pb-2 gap-1 opacity-50">
+                            <div className="w-8 md:w-12 h-[1px] bg-white/40"></div>
+                            <div className="w-8 md:w-12 h-[1px] bg-white/40"></div>
+                        </div>
 
-                        {/* Tape Pack Size (Grows as plays) */}
+                        {/* Right Reel */}
                         <div 
-                            className="absolute bg-white/10 rounded-full transition-all duration-1000"
-                            style={{ 
-                                width: `${Math.max(16, (16 + (progress * 0.24)))}px`, 
-                                height: `${Math.max(16, (16 + (progress * 0.24)))}px` 
-                            }}
-                        ></div>
+                            className={`relative w-14 h-14 md:w-20 md:h-20 border border-white/80 rounded-full flex items-center justify-center ${isPlaying ? 'animate-spin' : ''}`} 
+                            style={{ animationDuration: '4s', animationTimingFunction: 'linear' }}
+                        >
+                            <div className="absolute w-full h-full rounded-full border-[6px] border-white/10"></div>
+                            <div className="absolute w-[1px] h-full bg-white/40"></div>
+                            <div className="absolute w-[1px] h-full bg-white/40 rotate-60"></div>
+                            <div className="absolute w-[1px] h-full bg-white/40 -rotate-60"></div>
 
-                        {/* Hub */}
-                        <div className="w-1.5 h-1.5 md:w-2 md:h-2 bg-white rounded-full z-10"></div>
+                            <div 
+                                className="absolute bg-white/20 rounded-full transition-all duration-1000 backdrop-blur-sm"
+                                style={{ 
+                                    width: `${Math.max(20, (20 + (progress * 0.3)))}%`, 
+                                    height: `${Math.max(20, (20 + (progress * 0.3)))}%` 
+                                }}
+                            ></div>
+
+                            <div className="w-2 h-2 md:w-3 md:h-3 bg-white rounded-full z-10 shadow-sm"></div>
+                        </div>
+                    </>
+                ) : (
+                    <div className="text-white/30 flex flex-col items-center gap-2">
+                        <Radio size={28} className="md:w-[36px] md:h-[36px]" strokeWidth={0.7} />
+                        <span className="text-[8px] tracking-[0.3em] font-light">ABSENT</span>
                     </div>
-                </>
-             ) : (
-                <div className="text-white/30 flex flex-col items-center">
-                    <Radio size={24} className="md:w-[32px] md:h-[32px]" strokeWidth={0.5} stroke="currentColor" />
-                    <span className="text-[9px] tracking-[0.3em] mt-2">INSERT TAPE</span>
-                </div>
-             )}
-          </div>
-          
-          {/* Tape Connector Line (Bottom) */}
-          {media?.type === 'audio' && (
-             <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-32 md:w-48 h-8 md:h-12 border-b border-white/10 -z-0 rounded-[50%]"></div>
+                )}
+            </div>
           )}
-        </div>
+        </label>
 
-        {/* Progress */}
-        <div className="w-full h-px bg-white/10 mb-5 md:mb-8 relative group cursor-pointer">
-             <div className="absolute -top-2 -bottom-2 w-full z-10"></div>
+        {/* Progress Bar - Minimalist Line */}
+        <div className="w-full h-[1px] bg-white/20 mb-6 md:mb-10 relative group cursor-pointer">
+             <div className="absolute -top-3 -bottom-3 w-full z-10"></div>
              <div 
-               className="h-full bg-white relative transition-all duration-300"
+               className="h-full bg-white/90 relative transition-all duration-300 shadow-[0_0_10px_rgba(255,255,255,0.3)]"
                style={{ width: `${progress}%` }}
              >
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-white rotate-45 shadow-[0_0_8px_white] scale-0 group-hover:scale-100 transition-transform duration-200"></div>
+                {/* Diamond Scrubber */}
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-white rotate-45 shadow-md scale-0 group-hover:scale-100 transition-transform duration-200"></div>
              </div>
         </div>
 
-        {/* Controls */}
-        <div className="flex items-center justify-between px-2 md:px-4">
-            <div className="grid grid-cols-4 gap-[2px] w-8 md:w-12 opacity-50">
-                {[...Array(16)].map((_, i) => (
-                    <div key={`s1-${i}`} className="w-[1.5px] h-[1.5px] bg-white rounded-full"></div>
+        {/* Control Panel */}
+        <div className="flex items-center justify-between px-2 md:px-6">
+            
+            {/* Left Speaker Grille (Lines) */}
+            <div className="flex flex-col gap-[6px] w-8 md:w-12 opacity-70">
+                {[...Array(5)].map((_, i) => (
+                    <div key={`l-${i}`} className="w-full h-[1.5px] bg-white/60 rounded-full shadow-sm"></div>
                 ))}
             </div>
 
-            <div className="flex items-center gap-4 md:gap-8">
-                <label className="cursor-pointer flex flex-col items-center group">
-                    <input type="file" className="hidden" accept="audio/*,video/*" multiple onChange={handleFileChange} />
-                    <div className={`w-8 h-8 md:w-10 md:h-10 border border-white rounded-full flex items-center justify-center transition-all hover:bg-white hover:text-black hover:scale-110 duration-300 ${!media ? 'animate-pulse shadow-[0_0_15px_rgba(255,255,255,0.3)]' : ''}`}>
-                        <Upload size={12} className="md:w-[14px] md:h-[14px]" strokeWidth={1} />
-                    </div>
-                </label>
+            {/* Main Buttons */}
+            <div className="flex items-center gap-6 md:gap-10">
+                
+                {/* Lyrics Button (Opens Modal) */}
+                <button 
+                    onClick={() => setShowLyricsModal(true)}
+                    className="w-8 h-8 md:w-10 md:h-10 border border-white/40 rounded-full flex items-center justify-center transition-all hover:bg-white/10 hover:text-white hover:border-white/80 duration-300 group"
+                    title="Lyrics Settings"
+                >
+                    <FileText size={14} className="md:w-[16px] md:h-[16px]" strokeWidth={1.2} />
+                </button>
 
                 <button 
                     onClick={togglePlay}
                     disabled={media?.type !== 'audio' || isStarting}
-                    className={`w-16 h-16 md:w-20 md:h-20 border border-white rounded-full flex items-center justify-center transition-all hover:bg-white hover:text-black hover:scale-105 active:scale-95 duration-300 ${media?.type !== 'audio' ? 'opacity-30 cursor-not-allowed' : ''} ${isStarting ? 'scale-95 opacity-80' : ''}`}
+                    className={`w-16 h-16 md:w-24 md:h-24 border border-white/80 rounded-full flex items-center justify-center transition-all hover:bg-white hover:text-slate-900 hover:scale-105 active:scale-95 duration-300 shadow-lg ${media?.type !== 'audio' ? 'opacity-40 cursor-not-allowed' : ''} ${isStarting ? 'scale-95 opacity-80' : ''}`}
                 >
                     {isStarting ? (
-                        <div className="w-4 h-4 border-t border-black rounded-full animate-spin"></div>
+                        <div className="w-5 h-5 border-t border-current rounded-full animate-spin"></div>
                     ) : isPlaying ? (
-                        <Pause size={24} className="md:w-[28px] md:h-[28px]" strokeWidth={0.75} />
+                        <Pause size={28} className="md:w-[32px] md:h-[32px]" strokeWidth={0.8} />
                     ) : (
-                        <Play size={24} className="md:w-[28px] md:h-[28px] ml-1" strokeWidth={0.75} />
+                        <Play size={28} className="md:w-[32px] md:h-[32px] ml-1" strokeWidth={0.8} />
                     )}
                 </button>
                 
-                <div className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center opacity-0 pointer-events-none"></div>
+                {/* Upload Media */}
+                 <label className="cursor-pointer flex flex-col items-center group" title="Upload Music">
+                    <input type="file" className="hidden" accept="audio/*,video/*" multiple onChange={handleFileChange} />
+                    <div className={`w-8 h-8 md:w-10 md:h-10 border border-white/40 rounded-full flex items-center justify-center transition-all hover:bg-white/10 hover:text-white hover:border-white/80 duration-300 ${!media ? 'animate-pulse' : ''}`}>
+                        <Upload size={14} className="md:w-[16px] md:h-[16px]" strokeWidth={1.2} />
+                    </div>
+                </label>
             </div>
 
-            <div className="grid grid-cols-4 gap-[2px] w-8 md:w-12 opacity-50">
-                {[...Array(16)].map((_, i) => (
-                    <div key={`s2-${i}`} className="w-[1.5px] h-[1.5px] bg-white rounded-full"></div>
+            {/* Right Speaker Grille (Lines) */}
+            <div className="flex flex-col gap-[6px] w-8 md:w-12 opacity-70">
+                {[...Array(5)].map((_, i) => (
+                    <div key={`r-${i}`} className="w-full h-[1.5px] bg-white/60 rounded-full shadow-sm"></div>
                 ))}
             </div>
         </div>
-
       </div>
+
+      {/* Lyrics Modal (Portal to body to escape 3D transform) */}
+      {showLyricsModal && createPortal(
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+            <div className="w-full max-w-md bg-zinc-900/90 backdrop-blur-xl border border-white/20 rounded-3xl p-6 shadow-2xl relative">
+                <button 
+                    onClick={() => setShowLyricsModal(false)}
+                    className="absolute top-4 right-4 text-white/50 hover:text-white transition-colors"
+                >
+                    <X size={20} />
+                </button>
+                
+                <h3 className="text-xl text-white font-light mb-4 tracking-wider flex items-center gap-2" style={{ fontFamily: "'Londrina Sketch', cursive" }}>
+                    <FileText size={24} />
+                    Paroles / Lyrics
+                </h3>
+                
+                <textarea
+                    value={pastedLyrics}
+                    onChange={(e) => setPastedLyrics(e.target.value)}
+                    placeholder="[00:12.00] Paste your LRC text here..."
+                    className="w-full h-64 bg-black/40 border border-white/10 rounded-xl p-4 text-white/90 font-mono text-xs md:text-sm resize-none focus:outline-none focus:border-white/30 mb-6 placeholder:text-white/20 shadow-inner"
+                    spellCheck={false}
+                />
+                
+                <div className="flex gap-3">
+                    <label className="flex-1 cursor-pointer flex items-center justify-center gap-2 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all text-white/80 hover:text-white text-sm font-light">
+                        <input type="file" className="hidden" accept=".lrc,.txt" onChange={handleLyricsUpload} />
+                        <FileUp size={16} />
+                        Import
+                    </label>
+
+                    <button 
+                        onClick={handleDownloadLyrics}
+                        className="flex-1 flex items-center justify-center gap-2 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all text-white/80 hover:text-white text-sm font-light"
+                        title="Download as .lrc"
+                    >
+                        <Download size={16} />
+                        Download
+                    </button>
+                    
+                    <button 
+                        onClick={handleSavePastedLyrics}
+                        className="flex-1 flex items-center justify-center gap-2 py-3 bg-white text-black rounded-xl hover:bg-white/90 transition-all font-medium text-sm shadow-[0_0_15px_rgba(255,255,255,0.1)]"
+                    >
+                        <Save size={16} />
+                        Apply
+                    </button>
+                </div>
+            </div>
+        </div>,
+        document.body
+      )}
+
     </div>
   );
 };

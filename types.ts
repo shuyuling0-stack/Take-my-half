@@ -25,3 +25,8 @@ export interface Particle {
   type?: 'rain' | 'firework' | 'petal' | 'leaf' | 'snow';
   landed?: boolean;
 }
+
+export interface LyricLine {
+  time: number; // in seconds
+  text: string;
+}

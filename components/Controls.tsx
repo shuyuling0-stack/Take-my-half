@@ -1,14 +1,22 @@
 import React from 'react';
 import { Season } from '../types';
-import { Image, CloudRain, Snowflake, Flower2, Leaf } from 'lucide-react';
+import { Image, CloudRain, Snowflake, Flower2, Leaf, Minimize2, Maximize2 } from 'lucide-react';
 
 interface ControlsProps {
   currentSeason: Season;
   setSeason: (s: Season) => void;
   onBgUpload: (file: File) => void;
+  isPlayerHidden: boolean;
+  onToggleVisibility: () => void;
 }
 
-const Controls: React.FC<ControlsProps> = ({ currentSeason, setSeason, onBgUpload }) => {
+const Controls: React.FC<ControlsProps> = ({ 
+  currentSeason, 
+  setSeason, 
+  onBgUpload,
+  isPlayerHidden,
+  onToggleVisibility
+}) => {
   
   const seasonConfig = [
     { type: Season.Spring, icon: Flower2 },
@@ -18,7 +26,7 @@ const Controls: React.FC<ControlsProps> = ({ currentSeason, setSeason, onBgUploa
   ];
 
   return (
-    <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-[60] w-auto max-w-[90%] pointer-events-auto">
+    <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[110] w-auto max-w-[90%] pointer-events-auto">
       {/* Unified Dock Container */}
       <div className="flex items-center p-2 rounded-full bg-white/10 backdrop-blur-xl border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.1)] transition-transform hover:scale-105 duration-300">
         
@@ -46,9 +54,10 @@ const Controls: React.FC<ControlsProps> = ({ currentSeason, setSeason, onBgUploa
         {/* Vertical Divider */}
         <div className="w-px h-6 bg-white/20 mx-2 md:mx-4"></div>
 
-        {/* Settings Group */}
-        <div className="px-2">
-            <label className="cursor-pointer group relative flex items-center justify-center w-8 h-8 md:w-10 md:h-10 rounded-full hover:bg-white/20 transition-all text-white">
+        {/* Actions Group */}
+        <div className="flex items-center gap-1 md:gap-2 px-2">
+            {/* Background Upload */}
+            <label className="cursor-pointer group relative flex items-center justify-center w-8 h-8 md:w-10 md:h-10 rounded-full hover:bg-white/20 transition-all text-white" title="Change Background">
                 <input 
                     type="file" 
                     accept="image/*" 
@@ -57,6 +66,19 @@ const Controls: React.FC<ControlsProps> = ({ currentSeason, setSeason, onBgUploa
                 />
                 <Image size={16} strokeWidth={1.5} className="md:w-5 md:h-5 group-hover:scale-110 transition-transform" />
             </label>
+
+            {/* Collapse/Expand Toggle */}
+            <button 
+                onClick={onToggleVisibility}
+                className="flex items-center justify-center w-8 h-8 md:w-10 md:h-10 rounded-full hover:bg-white/20 transition-all text-white group"
+                title={isPlayerHidden ? "Show Player" : "Hide Player"}
+            >
+                {isPlayerHidden ? (
+                    <Maximize2 size={16} strokeWidth={1.5} className="md:w-5 md:h-5 group-hover:scale-110 transition-transform" />
+                ) : (
+                    <Minimize2 size={16} strokeWidth={1.5} className="md:w-5 md:h-5 group-hover:scale-110 transition-transform" />
+                )}
+            </button>
         </div>
 
       </div>

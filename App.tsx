@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Season, MediaData } from './types';
+import { Season, MediaData, LyricLine } from './types';
 import SeasonalCanvas from './components/SeasonalCanvas';
 import DoodleRadio from './components/DoodleRadio';
 import VideoModal from './components/VideoModal';
 import Controls from './components/Controls';
+import LyricsOverlay from './components/LyricsOverlay';
 
 const App: React.FC = () => {
   const [season, setSeason] = useState<Season>(Season.Spring);
@@ -13,8 +14,15 @@ const App: React.FC = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [autoPlayNext, setAutoPlayNext] = useState(false);
   
+  // Audio State for Lyrics Sync
+  const [currentTime, setCurrentTime] = useState(0);
+  const [lyrics, setLyrics] = useState<LyricLine[]>([]);
+  
   const [isPlaying, setIsPlaying] = useState(false);
   const [bgImage, setBgImage] = useState<string>('');
+  
+  // Visibility State for Immersive Mode
+  const [isPlayerHidden, setIsPlayerHidden] = useState(false);
   
   const currentMedia = playlist[currentIndex] || null;
   
@@ -37,6 +45,9 @@ const App: React.FC = () => {
     setPlaylist(newMediaItems);
     setCurrentIndex(0);
     setAutoPlayNext(false); 
+    setLyrics([]); // Reset lyrics for new song
+    // If uploading, ensure player is visible
+    setIsPlayerHidden(false);
   };
 
   const handleBgUpload = (file: File) => {
@@ -49,6 +60,7 @@ const App: React.FC = () => {
         // Go to next track
         setCurrentIndex(prev => prev + 1);
         setAutoPlayNext(true); 
+        setLyrics([]); // Reset lyrics
     } else {
         // End of playlist
         setIsPlaying(false);
@@ -83,27 +95,43 @@ const App: React.FC = () => {
       {/* 1. Seasonal Overlay */}
       <SeasonalCanvas season={season} />
 
-      {/* 2. Main Layout Container */}
+      {/* 2. Lyrics Overlay (Visible when player is hidden) */}
+      <LyricsOverlay 
+        lyrics={lyrics} 
+        currentTime={currentTime} 
+        isVisible={isPlayerHidden} 
+      />
+
+      {/* 3. Main Layout Container */}
       {/* Adjusted padding: pt-16 for header space, pb-28 to clear the new dock safely on mobile */}
-      <div className="relative z-20 flex-1 flex flex-col items-center w-full h-full pointer-events-none pb-28 md:pb-0">
+      <div className="relative z-20 flex-1 flex flex-col items-center w-full h-full pointer-events-none pb-28 md:pb-0 transition-all duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)]">
         
         {/* Header / Title Section */}
-        {/* pt-16 md:pt-12: Balanced top spacing */}
-        <div className="shrink-0 pt-16 md:pt-12 pb-2 w-full text-center pointer-events-auto z-30 transition-all duration-500">
+        {/* Removed conditional styling for isPlayerHidden to keep title visible */}
+        <div 
+            className="shrink-0 pt-16 md:pt-12 pb-2 w-full text-center pointer-events-auto z-30 transition-all duration-700"
+        >
             <h1 className="text-5xl md:text-7xl font-normal text-white tracking-widest opacity-90 drop-shadow-lg inline-block relative hover:scale-105 transition-transform cursor-default" style={{ fontFamily: "'Londrina Sketch', cursive" }}>
               Beomedio 🎧
             </h1>
         </div>
 
         {/* Player Section */}
-        <div className="flex-1 w-full flex items-center justify-center min-h-0 pointer-events-auto relative">
+        <div className="flex-1 w-full flex items-center justify-center min-h-0 pointer-events-auto relative perspective-[1000px]">
             {/* Player Wrapper */}
-            {/* Kept scale-85 for mobile to ensure no overlap, but centering should be better with new flex spacing */}
-            <div className="w-full max-w-lg px-4 transform scale-85 md:scale-100 origin-center transition-transform duration-500 ease-out">
+            <div 
+                className={`w-full max-w-lg px-4 transform origin-center transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] ${
+                    isPlayerHidden 
+                    ? 'opacity-0 scale-75 translate-y-20 blur-md pointer-events-none rotate-x-12' 
+                    : 'opacity-100 scale-85 md:scale-100 translate-y-0 blur-0 rotate-x-0'
+                }`}
+            >
                 <DoodleRadio 
                     media={displayMedia} 
                     onPlayStateChange={setIsPlaying}
                     onFileUpload={handleFileUpload}
+                    onLyricsLoaded={setLyrics}
+                    onTimeUpdate={setCurrentTime}
                     onTrackFinish={handleTrackFinish}
                     autoPlay={autoPlayNext}
                 />
@@ -111,14 +139,16 @@ const App: React.FC = () => {
         </div>
       </div>
 
-      {/* 3. Controls (Unified Dock) */}
+      {/* 4. Controls (Unified Dock) */}
       <Controls 
         currentSeason={season} 
         setSeason={setSeason} 
         onBgUpload={handleBgUpload}
+        isPlayerHidden={isPlayerHidden}
+        onToggleVisibility={() => setIsPlayerHidden(!isPlayerHidden)}
       />
 
-      {/* 4. Video Modal */}
+      {/* 5. Video Modal */}
       {currentMedia?.type === 'video' && (
         <VideoModal 
             url={currentMedia.url} 
