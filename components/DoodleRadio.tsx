@@ -273,7 +273,7 @@ const DoodleRadio: React.FC<DoodleRadioProps> = ({
   };
 
   return (
-    <div className="relative w-full max-w-lg mx-auto p-2 md:p-6">
+    <div className="relative w-full mx-auto p-2">
       {/* Audio Element */}
       {media?.type === 'audio' && (
         <audio
@@ -285,16 +285,17 @@ const DoodleRadio: React.FC<DoodleRadioProps> = ({
       )}
 
       {/* Main Radio Body */}
-      <div className="relative border border-white/70 rounded-[2.5rem] md:rounded-[3.5rem] p-6 md:p-10 bg-white/5 backdrop-blur-[4px] shadow-[0_8px_40px_rgba(0,0,0,0.1)] z-10 transition-all duration-500 hover:shadow-[0_12px_60px_rgba(255,255,255,0.15)] group">
+      {/* Reduced padding and rounding slightly for tighter fit */}
+      <div className="relative border border-white/70 rounded-[2rem] md:rounded-[3rem] p-5 md:p-8 bg-white/5 backdrop-blur-[4px] shadow-[0_8px_40px_rgba(0,0,0,0.1)] z-10 transition-all duration-500 hover:shadow-[0_12px_60px_rgba(255,255,255,0.15)] group">
         
         {/* Inner Decorative Bezel/Frame for depth */}
-        <div className="absolute inset-2 md:inset-3 border border-white/20 rounded-[2rem] md:rounded-[3rem] pointer-events-none"></div>
+        <div className="absolute inset-2 md:inset-3 border border-white/20 rounded-[1.5rem] md:rounded-[2.5rem] pointer-events-none"></div>
 
         {/* Elegant Strap Handle */}
-        <div className="absolute -top-12 left-1/2 -translate-x-1/2 w-48 h-20 border-t-[3px] border-white/80 rounded-t-full -z-10 opacity-90"></div>
+        <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-40 h-16 border-t-[3px] border-white/80 rounded-t-full -z-10 opacity-90"></div>
         
         {/* Antenna - Minimalist Line */}
-        <div className="absolute -top-16 right-8 md:right-12 w-[1px] h-24 bg-white/60 transform rotate-[12deg] -z-20 origin-bottom transition-transform duration-700 group-hover:rotate-[5deg]">
+        <div className="absolute -top-14 right-8 md:right-12 w-[1px] h-20 bg-white/60 transform rotate-[12deg] -z-20 origin-bottom transition-transform duration-700 group-hover:rotate-[5deg]">
              <div className="w-2 h-2 rounded-full bg-white absolute -top-1 -left-[3.5px] shadow-[0_0_10px_rgba(255,255,255,0.8)]"></div>
         </div>
 
@@ -302,16 +303,15 @@ const DoodleRadio: React.FC<DoodleRadioProps> = ({
         <div className="absolute -bottom-3 left-10 md:left-16 w-3 h-3 md:w-4 md:h-4 bg-white/20 backdrop-blur-md rounded-full -z-10 shadow-sm"></div>
         <div className="absolute -bottom-3 right-10 md:right-16 w-3 h-3 md:w-4 md:h-4 bg-white/20 backdrop-blur-md rounded-full -z-10 shadow-sm"></div>
 
-        {/* Screws - Minimalist dots */}
-        <div className="absolute top-4 left-4 md:top-6 md:left-6 w-1 h-1 bg-white/40 rounded-full"></div>
-        <div className="absolute top-4 right-4 md:top-6 md:right-6 w-1 h-1 bg-white/40 rounded-full"></div>
-        <div className="absolute bottom-4 left-4 md:bottom-6 md:left-6 w-1 h-1 bg-white/40 rounded-full"></div>
-        <div className="absolute bottom-4 right-4 md:bottom-6 md:right-6 w-1 h-1 bg-white/40 rounded-full"></div>
+        {/* Screws */}
+        <div className="absolute top-4 left-4 md:top-5 md:left-5 w-1 h-1 bg-white/40 rounded-full"></div>
+        <div className="absolute top-4 right-4 md:top-5 md:right-5 w-1 h-1 bg-white/40 rounded-full"></div>
+        <div className="absolute bottom-4 left-4 md:bottom-5 md:left-5 w-1 h-1 bg-white/40 rounded-full"></div>
+        <div className="absolute bottom-4 right-4 md:bottom-5 md:right-5 w-1 h-1 bg-white/40 rounded-full"></div>
 
         {/* Top Header: Branding & Indicators */}
-        <div className="flex justify-between items-center mb-6 md:mb-8 px-2 relative z-20">
+        <div className="flex justify-between items-center mb-4 md:mb-6 px-2 relative z-20">
            <div className="flex items-center gap-3">
-               {/* Decorative lines */}
                <div className="flex flex-col gap-[3px]">
                    <div className="w-6 h-[1px] bg-white/60"></div>
                    <div className="w-4 h-[1px] bg-white/60"></div>
@@ -325,8 +325,8 @@ const DoodleRadio: React.FC<DoodleRadioProps> = ({
            </div>
         </div>
 
-        {/* Cassette Window - Framed & Elegant - NOW CLICKABLE FOR COVER UPLOAD */}
-        <label className="relative block border border-white/50 rounded-2xl md:rounded-3xl p-4 md:p-6 mb-6 md:mb-8 h-32 md:h-40 flex items-center justify-between overflow-hidden bg-black/5 shadow-inner cursor-pointer group/screen transition-all hover:border-white/70">
+        {/* Cassette Window - 4:3 Aspect Ratio - NOW CLICKABLE FOR COVER UPLOAD */}
+        <label className="relative block border border-white/50 rounded-2xl md:rounded-3xl p-4 mb-4 md:mb-6 aspect-[4/3] flex items-center justify-center overflow-hidden bg-black/5 shadow-inner cursor-pointer group/screen transition-all hover:border-white/70">
           <input 
             type="file" 
             className="hidden" 
@@ -347,12 +347,12 @@ const DoodleRadio: React.FC<DoodleRadioProps> = ({
                 <div className="flex flex-col items-center gap-2 text-white/90">
                     <ImagePlus size={24} strokeWidth={1} />
                     <span className="text-[10px] tracking-[0.2em] font-light uppercase">
-                        {coverImage ? 'Changer la pochette' : 'Ajouter une pochette'}
+                        {coverImage ? 'Changer' : 'Ajouter'}
                     </span>
                 </div>
           </div>
           
-          {/* Glass Reflection Effect (Keep on top) */}
+          {/* Glass Reflection */}
           <div className="absolute -top-10 -right-10 w-20 h-40 bg-white/5 rotate-12 blur-xl pointer-events-none z-30"></div>
 
           {/* Track Info */}
@@ -364,23 +364,20 @@ const DoodleRadio: React.FC<DoodleRadioProps> = ({
              </div>
           </div>
 
-          {/* Animation Content (Only show if no cover image) */}
+          {/* Animation Content */}
           {!coverImage && (
             <div className="w-full flex items-center justify-center gap-6 md:gap-12 mt-3 relative z-10">
                 {media?.type === 'audio' ? (
                     <>
-                        {/* Left Reel */}
+                        {/* Reels adapted for wider 4:3 display */}
                         <div 
-                            className={`relative w-14 h-14 md:w-20 md:h-20 border border-white/80 rounded-full flex items-center justify-center ${isPlaying ? 'animate-spin' : ''}`} 
+                            className={`relative w-16 h-16 md:w-28 md:h-28 border border-white/80 rounded-full flex items-center justify-center ${isPlaying ? 'animate-spin' : ''}`} 
                             style={{ animationDuration: '4s', animationTimingFunction: 'linear' }}
                         >
-                            {/* Elegant 3-Spoke Design */}
-                            <div className="absolute w-full h-full rounded-full border-[6px] border-white/10"></div>
+                            <div className="absolute w-full h-full rounded-full border-[5px] border-white/10"></div>
                             <div className="absolute w-[1px] h-full bg-white/40"></div>
                             <div className="absolute w-[1px] h-full bg-white/40 rotate-60"></div>
                             <div className="absolute w-[1px] h-full bg-white/40 -rotate-60"></div>
-                            
-                            {/* Tape Pack (White filled circle) */}
                             <div 
                                 className="absolute bg-white/20 rounded-full transition-all duration-1000 backdrop-blur-sm"
                                 style={{ 
@@ -388,27 +385,22 @@ const DoodleRadio: React.FC<DoodleRadioProps> = ({
                                     height: `${Math.max(20, (50 - (progress * 0.3)))}%` 
                                 }}
                             ></div>
-                            
-                            {/* Center Hub */}
                             <div className="w-2 h-2 md:w-3 md:h-3 bg-white rounded-full z-10 shadow-sm"></div>
                         </div>
 
-                        {/* Center Decoration */}
                         <div className="h-full flex flex-col justify-end pb-2 gap-1 opacity-50">
-                            <div className="w-8 md:w-12 h-[1px] bg-white/40"></div>
-                            <div className="w-8 md:w-12 h-[1px] bg-white/40"></div>
+                            <div className="w-10 md:w-16 h-[1px] bg-white/40"></div>
+                            <div className="w-10 md:w-16 h-[1px] bg-white/40"></div>
                         </div>
 
-                        {/* Right Reel */}
                         <div 
-                            className={`relative w-14 h-14 md:w-20 md:h-20 border border-white/80 rounded-full flex items-center justify-center ${isPlaying ? 'animate-spin' : ''}`} 
+                            className={`relative w-16 h-16 md:w-28 md:h-28 border border-white/80 rounded-full flex items-center justify-center ${isPlaying ? 'animate-spin' : ''}`} 
                             style={{ animationDuration: '4s', animationTimingFunction: 'linear' }}
                         >
-                            <div className="absolute w-full h-full rounded-full border-[6px] border-white/10"></div>
+                            <div className="absolute w-full h-full rounded-full border-[5px] border-white/10"></div>
                             <div className="absolute w-[1px] h-full bg-white/40"></div>
                             <div className="absolute w-[1px] h-full bg-white/40 rotate-60"></div>
                             <div className="absolute w-[1px] h-full bg-white/40 -rotate-60"></div>
-
                             <div 
                                 className="absolute bg-white/20 rounded-full transition-all duration-1000 backdrop-blur-sm"
                                 style={{ 
@@ -416,13 +408,12 @@ const DoodleRadio: React.FC<DoodleRadioProps> = ({
                                     height: `${Math.max(20, (20 + (progress * 0.3)))}%` 
                                 }}
                             ></div>
-
                             <div className="w-2 h-2 md:w-3 md:h-3 bg-white rounded-full z-10 shadow-sm"></div>
                         </div>
                     </>
                 ) : (
                     <div className="text-white/30 flex flex-col items-center gap-2">
-                        <Radio size={28} className="md:w-[36px] md:h-[36px]" strokeWidth={0.7} />
+                        <Radio size={24} className="md:w-[32px] md:h-[32px]" strokeWidth={0.7} />
                         <span className="text-[8px] tracking-[0.3em] font-light">ABSENT</span>
                     </div>
                 )}
@@ -431,31 +422,26 @@ const DoodleRadio: React.FC<DoodleRadioProps> = ({
         </label>
 
         {/* Progress Bar - Minimalist Line */}
-        <div className="w-full h-[1px] bg-white/20 mb-6 md:mb-10 relative group cursor-pointer">
+        <div className="w-full h-[1px] bg-white/20 mb-4 md:mb-6 relative group cursor-pointer">
              <div className="absolute -top-3 -bottom-3 w-full z-10"></div>
              <div 
                className="h-full bg-white/90 relative transition-all duration-300 shadow-[0_0_10px_rgba(255,255,255,0.3)]"
                style={{ width: `${progress}%` }}
              >
-                {/* Diamond Scrubber */}
                 <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-white rotate-45 shadow-md scale-0 group-hover:scale-100 transition-transform duration-200"></div>
              </div>
         </div>
 
         {/* Control Panel */}
-        <div className="flex items-center justify-between px-2 md:px-6">
+        <div className="flex items-center justify-between px-2 md:px-4">
             
-            {/* Left Speaker Grille (Lines) */}
-            <div className="flex flex-col gap-[6px] w-8 md:w-12 opacity-70">
+            <div className="flex flex-col gap-[5px] w-6 md:w-10 opacity-70">
                 {[...Array(5)].map((_, i) => (
                     <div key={`l-${i}`} className="w-full h-[1.5px] bg-white/60 rounded-full shadow-sm"></div>
                 ))}
             </div>
 
-            {/* Main Buttons */}
-            <div className="flex items-center gap-6 md:gap-10">
-                
-                {/* Lyrics Button (Opens Modal) */}
+            <div className="flex items-center gap-4 md:gap-8">
                 <button 
                     onClick={() => setShowLyricsModal(true)}
                     className="w-8 h-8 md:w-10 md:h-10 border border-white/40 rounded-full flex items-center justify-center transition-all hover:bg-white/10 hover:text-white hover:border-white/80 duration-300 group"
@@ -467,18 +453,17 @@ const DoodleRadio: React.FC<DoodleRadioProps> = ({
                 <button 
                     onClick={togglePlay}
                     disabled={media?.type !== 'audio' || isStarting}
-                    className={`w-16 h-16 md:w-24 md:h-24 border border-white/80 rounded-full flex items-center justify-center transition-all hover:bg-white hover:text-slate-900 hover:scale-105 active:scale-95 duration-300 shadow-lg ${media?.type !== 'audio' ? 'opacity-40 cursor-not-allowed' : ''} ${isStarting ? 'scale-95 opacity-80' : ''}`}
+                    className={`w-14 h-14 md:w-20 md:h-20 border border-white/80 rounded-full flex items-center justify-center transition-all hover:bg-white hover:text-slate-900 hover:scale-105 active:scale-95 duration-300 shadow-lg ${media?.type !== 'audio' ? 'opacity-40 cursor-not-allowed' : ''} ${isStarting ? 'scale-95 opacity-80' : ''}`}
                 >
                     {isStarting ? (
-                        <div className="w-5 h-5 border-t border-current rounded-full animate-spin"></div>
+                        <div className="w-4 h-4 border-t border-current rounded-full animate-spin"></div>
                     ) : isPlaying ? (
-                        <Pause size={28} className="md:w-[32px] md:h-[32px]" strokeWidth={0.8} />
+                        <Pause size={24} className="md:w-[28px] md:h-[28px]" strokeWidth={0.8} />
                     ) : (
-                        <Play size={28} className="md:w-[32px] md:h-[32px] ml-1" strokeWidth={0.8} />
+                        <Play size={24} className="md:w-[28px] md:h-[28px] ml-1" strokeWidth={0.8} />
                     )}
                 </button>
                 
-                {/* Upload Media */}
                  <label className="cursor-pointer flex flex-col items-center group" title="Upload Music">
                     <input type="file" className="hidden" accept="audio/*,video/*" multiple onChange={handleFileChange} />
                     <div className={`w-8 h-8 md:w-10 md:h-10 border border-white/40 rounded-full flex items-center justify-center transition-all hover:bg-white/10 hover:text-white hover:border-white/80 duration-300 ${!media ? 'animate-pulse' : ''}`}>
@@ -487,8 +472,7 @@ const DoodleRadio: React.FC<DoodleRadioProps> = ({
                 </label>
             </div>
 
-            {/* Right Speaker Grille (Lines) */}
-            <div className="flex flex-col gap-[6px] w-8 md:w-12 opacity-70">
+            <div className="flex flex-col gap-[5px] w-6 md:w-10 opacity-70">
                 {[...Array(5)].map((_, i) => (
                     <div key={`r-${i}`} className="w-full h-[1.5px] bg-white/60 rounded-full shadow-sm"></div>
                 ))}
@@ -496,7 +480,7 @@ const DoodleRadio: React.FC<DoodleRadioProps> = ({
         </div>
       </div>
 
-      {/* Lyrics Modal (Portal to body to escape 3D transform) */}
+      {/* Lyrics Modal - Same as before */}
       {showLyricsModal && createPortal(
         <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
             <div className="w-full max-w-md bg-zinc-900/90 backdrop-blur-xl border border-white/20 rounded-3xl p-6 shadow-2xl relative">

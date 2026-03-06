@@ -103,13 +103,13 @@ const App: React.FC = () => {
       />
 
       {/* 3. Main Layout Container */}
-      {/* Adjusted padding: pt-16 for header space, pb-28 to clear the new dock safely on mobile */}
-      <div className="relative z-20 flex-1 flex flex-col items-center w-full h-full pointer-events-none pb-28 md:pb-0 transition-all duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)]">
+      {/* Increased bottom padding to ensure player doesn't overlap with controls */}
+      {/* Added gap-4 to ensure spacing between header and player */}
+      <div className="relative z-20 flex-1 flex flex-col items-center w-full h-full pointer-events-none pb-32 md:pb-36 gap-4 md:gap-8 transition-all duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)]">
         
         {/* Header / Title Section */}
-        {/* Removed conditional styling for isPlayerHidden to keep title visible */}
         <div 
-            className="shrink-0 pt-16 md:pt-12 pb-2 w-full text-center pointer-events-auto z-30 transition-all duration-700"
+            className="shrink-0 pt-10 md:pt-12 w-full text-center pointer-events-auto z-30 transition-all duration-700"
         >
             <h1 className="text-5xl md:text-7xl font-normal text-white tracking-widest opacity-90 drop-shadow-lg inline-block relative hover:scale-105 transition-transform cursor-default" style={{ fontFamily: "'Londrina Sketch', cursive" }}>
               Beomedio 🎧
@@ -119,12 +119,19 @@ const App: React.FC = () => {
         {/* Player Section */}
         <div className="flex-1 w-full flex items-center justify-center min-h-0 pointer-events-auto relative perspective-[1000px]">
             {/* Player Wrapper */}
+            {/* Widened constraint to allow 4:3 screen ratio to breathe */}
             <div 
-                className={`w-full max-w-lg px-4 transform origin-center transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] ${
+                className={`w-full px-4 transform origin-center transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] ${
                     isPlayerHidden 
                     ? 'opacity-0 scale-75 translate-y-20 blur-md pointer-events-none rotate-x-12' 
-                    : 'opacity-100 scale-85 md:scale-100 translate-y-0 blur-0 rotate-x-0'
+                    : 'opacity-100 scale-100 translate-y-0 blur-0 rotate-x-0'
                 }`}
+                style={{
+                  // Constraints updated for wider ratio:
+                  // 1. Max width 32rem (widened from 23rem)
+                  // 2. Height constraint adjusted to prevent overlap
+                  maxWidth: 'min(32rem, calc((100vh - 16rem) * 0.85))'
+                }}
             >
                 <DoodleRadio 
                     media={displayMedia} 
